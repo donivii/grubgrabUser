@@ -295,13 +295,12 @@ const MapView = ({deals,restaurants,userLat,userLng,radius,onTapRestaurant}) => 
       window.L.control.attribution({position:"bottomleft",prefix:false}).addTo(map).addAttribution('© <a href="https://openstreetmap.org">OSM</a>');
 
       mapInstance.current=map;
-      // Small delay to fix tile rendering in artifacts
-      setTimeout(()=>map.invalidateSize(),200);
+      setTimeout(()=>map.invalidateSize(),300);
     };
 
     if(window.L){init();}
-    else{const check=setInterval(()=>{if(window.L){clearInterval(check);init();}},100);return()=>clearInterval(check);}
-  },[]);
+    else{const check=setInterval(()=>{if(window.L){clearInterval(check);init();}},150);return()=>clearInterval(check);}
+  },[userLat,userLng]);
 
   // Update user marker, radius circle, and restaurant markers
   useEffect(()=>{
@@ -705,8 +704,15 @@ export default function GrubGrab() {
     try {
       const r=await sbFetch("restaurants",{query:"?order=name"});
       const d=await sbFetch("deals",{query:"?order=created_at"});
-      setRestaurants(r||[]);
-      setDeals((d||[]).map(dl=>({...dl,restaurantId:dl.restaurant_id,startTime:dl.start_time,endTime:dl.end_time,expiryDate:dl.expiry_date})));
+      if(r&&r.length>0)setRestaurants(r);else setRestaurants(SEED_R);
+      if(d&&d.length>0){
+        setDeals(d.map(dl=>{
+          let days=dl.days;
+          if(typeof days==="string") try{days=JSON.parse(days);}catch{days=[];}
+          if(!Array.isArray(days))days=[];
+          return {...dl,restaurantId:dl.restaurant_id,startTime:dl.start_time,endTime:dl.end_time,expiryDate:dl.expiry_date,days};
+        }));
+      } else setDeals(SEED_D);
     } catch(e) {
       console.error("Supabase load failed, using seed data:",e);
       setRestaurants(SEED_R);setDeals(SEED_D);
@@ -722,8 +728,15 @@ export default function GrubGrab() {
     try {
       const r=await sbFetch("restaurants",{query:"?order=name"});
       const d=await sbFetch("deals",{query:"?order=created_at"});
-      setRestaurants(r||[]);
-      setDeals((d||[]).map(dl=>({...dl,restaurantId:dl.restaurant_id,startTime:dl.start_time,endTime:dl.end_time,expiryDate:dl.expiry_date})));
+      if(r&&r.length>0)setRestaurants(r);
+      if(d&&d.length>0){
+        setDeals(d.map(dl=>{
+          let days=dl.days;
+          if(typeof days==="string") try{days=JSON.parse(days);}catch{days=[];}
+          if(!Array.isArray(days))days=[];
+          return {...dl,restaurantId:dl.restaurant_id,startTime:dl.start_time,endTime:dl.end_time,expiryDate:dl.expiry_date,days};
+        }));
+      }
     } catch(e){console.error("Refresh failed:",e);}
   },[]);
 
