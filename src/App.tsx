@@ -756,6 +756,21 @@ export default function GrubGrab() {
   const rMap=useMemo(()=>{const m={};restaurants.forEach(r=>m[r.id]=r);return m;},[restaurants]);
 
   const dayFilter=calendarDay||"Today";
+  // Deals filtered by radius/expiry/active but NOT by day (for calendar to count per day)
+  const radiusFilteredDeals=useMemo(()=>{
+    const now=new Date();
+    return deals.filter(d=>{
+      const r=rMap[d.restaurantId];
+      if(!r||!r.active||!d.active)return false;
+      if(hDist(userLat,userLng,r.lat,r.lng)>radius)return false;
+      if(new Date(d.expiryDate)<now)return false;
+      if(cuisineFilter!=="All Cuisines"&&r.cuisine!==cuisineFilter)return false;
+      if(deliveryOnly&&!r.delivery)return false;
+      if(showFavs&&!favorites.includes(d.id))return false;
+      return true;
+    });
+  },[deals,rMap,userLat,userLng,radius,cuisineFilter,deliveryOnly,showFavs,favorites]);
+
   const processedDeals=useMemo(()=>{
     const now=new Date();const td=today();
     return deals.filter(d=>{
@@ -838,11 +853,11 @@ export default function GrubGrab() {
     for(let i=1;i<7;i++){
       const dt=new Date(now);dt.setDate(dt.getDate()+i);
       const dn=DAYS[dt.getDay()];
-      const count=deals.filter(d=>d.active&&d.days.includes(dn)&&new Date(d.expiryDate)>=now).length;
+      const count=radiusFilteredDeals.filter(d=>d.days&&d.days.includes(dn)).length;
       if(count>bestCount){bestCount=count;best={day:dn,count,short:dn.slice(0,3)};}
     }
     return best;
-  },[deals]);
+  },[radiusFilteredDeals]);
 
   // Restaurant count in radius
   const nearbyRestaurantCount=useMemo(()=>{
@@ -945,7 +960,7 @@ export default function GrubGrab() {
 
         {/* Calendar */}
         <div style={{marginTop:10}}>
-          <WeeklyCalendar deals={deals} restaurants={restaurants} selectedDay={calendarDay} onSelectDay={d=>setCalendarDay(d)}/>
+          <WeeklyCalendar deals={radiusFilteredDeals} restaurants={restaurants} selectedDay={calendarDay} onSelectDay={d=>setCalendarDay(d)}/>
         </div>
 
         {/* Time Filter */}
